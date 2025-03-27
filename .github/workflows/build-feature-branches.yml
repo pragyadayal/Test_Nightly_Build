@@ -2,32 +2,33 @@ name: Build Feature Branches
 
 on:
   schedule:
-    - cron: '0 0 * * *'  # Runs daily at midnight UTC
+    - cron: '00 17 * * *'  # Runs daily at midnight UTC
   workflow_dispatch:  # Allows manual triggering
 
 jobs:
-  build:
-    runs-on: ubuntu-latest
+  find-feature-branches:
+    runs-on: self-hosted  # Use your self-hosted runner
+    outputs:
+      branches: ${{ steps.set-branches.outputs.branches }}
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
+        with:
+          fetch-depth: 0  # Ensure all branches are fetched
 
-      - name: List all feature branches
+      - name: Get all feature branches
+        id: set-branches
         run: |
-          FEATURE_BRANCHES=$(git ls-remote --heads origin | awk -F'/' '{print $3}' | grep '^feature')
-          echo "Feature branches:"
-          echo "$FEATURE_BRANCHES"
-          echo "$FEATURE_BRANCHES" > feature_branches.txt
-          echo "FEATURE_BRANCHES<<EOF" >> $GITHUB_ENV
-          echo "$FEATURE_BRANCHES" >> $GITHUB_ENV
-          echo "EOF" >> $GITHUB_ENV
+          FEATURE_BRANCHES=$(git branch -r | grep 'origin/feature-' | awk -F'/' '{print $2}' | jq -R -s -c 'split("\n")[:-1]')
+          echo "Feature branches found: $FEATURE_BRANCHES"
+          echo "branches=$FEATURE_BRANCHES" >> $GITHUB_OUTPUT
 
-  process-branches:
-    needs: build
-    runs-on: ubuntu-latest
+  process-feature-branches:
+    needs: find-feature-branches
+    runs-on: self-hosted  # Use your self-hosted runner
     strategy:
       matrix:
-        branch: ${{ fromJson(env.FEATURE_BRANCHES) }}
+        branch: ${{ fromJson(needs.find-feature-branches.outputs.branches) }}
     steps:
       - name: Checkout feature branch ${{ matrix.branch }}
         uses: actions/checkout@v4
@@ -36,4 +37,4 @@ jobs:
 
       - name: Display the text file contents
         run: |
-          cat your_text_file.txt || echo "File not found in branch ${{ matrix.branch }}"
+          cat test.txt || echo "File not found in branch ${{ matrix.branch }}"
