@@ -1,0 +1,39 @@
+name: Build Feature Branches
+
+on:
+  schedule:
+    - cron: '0 0 * * *'  # Runs daily at midnight UTC
+  workflow_dispatch:  # Allows manual triggering
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: List all feature branches
+        run: |
+          FEATURE_BRANCHES=$(git ls-remote --heads origin | awk -F'/' '{print $3}' | grep '^feature')
+          echo "Feature branches:"
+          echo "$FEATURE_BRANCHES"
+          echo "$FEATURE_BRANCHES" > feature_branches.txt
+          echo "FEATURE_BRANCHES<<EOF" >> $GITHUB_ENV
+          echo "$FEATURE_BRANCHES" >> $GITHUB_ENV
+          echo "EOF" >> $GITHUB_ENV
+
+  process-branches:
+    needs: build
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        branch: ${{ fromJson(env.FEATURE_BRANCHES) }}
+    steps:
+      - name: Checkout feature branch ${{ matrix.branch }}
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ matrix.branch }}
+
+      - name: Display the text file contents
+        run: |
+          cat your_text_file.txt || echo "File not found in branch ${{ matrix.branch }}"
