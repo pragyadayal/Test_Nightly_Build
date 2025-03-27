@@ -3,8 +3,15 @@ name: Build Feature Branches
 on:
   schedule:
     - cron: '52 11 * * *'  # UTC timing
-  workflow_dispatch:  # Allows manual triggering
-
+  workflow_dispatch:  
+  inputs:
+      branch:
+        description: 'Select a branch to build'
+        required: true
+        type: choice
+        options:
+          - feature-2
+        
 jobs:
   find-feature-branches:
     runs-on: self-hosted  # Use your self-hosted runner
