@@ -2,7 +2,7 @@ name: Build Feature Branches
 
 on:
   schedule:
-    - cron: '40 11 * * *'  # UTC timing
+    - cron: '5 * * * *'  # UTC timing
   workflow_dispatch:  # Allows manual triggering
 
 jobs:
