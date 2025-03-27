@@ -4,7 +4,7 @@ on:
   schedule:
     - cron: '52 11 * * *'  # UTC timing
   workflow_dispatch:  
-  inputs:
+    inputs:
       branch:
         description: 'Select a branch to build'
         required: true
