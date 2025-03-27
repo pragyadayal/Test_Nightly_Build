@@ -10,8 +10,8 @@ on:
         required: true
         type: choice
         options:
-          - feature-1
           - feature-2
+        
 
 jobs:
   check-new-commits:
