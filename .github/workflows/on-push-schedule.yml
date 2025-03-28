@@ -1,9 +1,9 @@
-name: On push Scheduled Feature Branch Check
+name: On Push Scheduled Feature Branch Check
 
 on:
   schedule:
-    - cron: "40 10 * * *" 
-  workflow_dispatch:
+    - cron: "40 10 * * *"  # Runs at 10:40 AM UTC (4:10 PM IST)
+  workflow_dispatch:  # Allows manual triggering
 
 jobs:
   check-commits:
@@ -28,7 +28,7 @@ jobs:
           latest_branch=$(git branch -r --contains $latest_commit | grep "feature-" | head -n 1 | sed 's/origin\///')
 
           echo "Latest Commit ID: $latest_commit"
-          echo "Branch: $latest_branch"
+          echo "Changed Branch: $latest_branch"
 
           last_run_file="$GITHUB_WORKSPACE/.last_run_commit"
           
@@ -45,6 +45,7 @@ jobs:
             echo "$latest_commit" > "$last_run_file"
           else
             echo "has_changes=false" >> "$GITHUB_ENV"
+            echo "No changes detected on any feature branches."
           fi
 
   run-task:
@@ -62,6 +63,12 @@ jobs:
         run: |
           echo "Triggered by commit: ${{ needs.check-commits.outputs.latest_commit }}"
           echo "On branch: ${{ needs.check-commits.outputs.latest_branch }}"
-          
+
       - name: Display check.txt contents
-        run: cat check.txt
+        run: |
+          if [ -f "check.txt" ]; then
+            echo "Contents of check.txt:"
+            cat check.txt
+          else
+            echo "check.txt not found in the branch."
+          fi
