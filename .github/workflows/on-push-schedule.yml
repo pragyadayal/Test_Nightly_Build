@@ -21,7 +21,7 @@ jobs:
       - name: Fetch latest changes
         run: git fetch --all
 
-       - name: Check for new commits on feature branches
+      - name: Check for new commits on feature branches
         id: check
         run: |
           last_run_file="$GITHUB_WORKSPACE/.last_run_commit"
