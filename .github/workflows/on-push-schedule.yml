@@ -52,13 +52,16 @@ jobs:
     if: needs.check-commits.outputs.has_changes == 'true'
     runs-on: self-hosted
     steps:
-      - name: Checkout repository
+      - name: Checkout specific feature branch
         uses: actions/checkout@v4
+        with:
+          ref: ${{ needs.check-commits.outputs.latest_branch }}  # Checkout the detected branch
+          fetch-depth: 0
 
       - name: Display detected commit and branch
         run: |
           echo "Triggered by commit: ${{ needs.check-commits.outputs.latest_commit }}"
           echo "On branch: ${{ needs.check-commits.outputs.latest_branch }}"
-
-      - name: Display test.txt contents
+          
+      - name: Display check.txt contents
         run: cat check.txt
