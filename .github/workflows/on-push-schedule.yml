@@ -21,7 +21,7 @@ jobs:
       - name: Fetch latest changes
         run: git fetch --all
 
-      - name: Check for new commits on feature branches
+       - name: Check for new commits on feature branches
         id: check
         run: |
           last_run_file="$GITHUB_WORKSPACE/.last_run_commit"
@@ -35,14 +35,17 @@ jobs:
           
           # Get latest commit and branch name for all feature branches
           mapfile -t commits < <(git log --remotes --branches="feature-*" --pretty=format:'%H' -n 5)
-          
+
           has_changes=false
           latest_commits=""
           latest_branches=""
 
           for commit in "${commits[@]}"; do
-            branch=$(git branch -r --contains "$commit" | grep "feature-" | sed 's/origin\///' | xargs)
-            if [[ ! "$last_commits" =~ "$commit" ]]; then
+            # Get the branch name that directly contains the commit
+            branch=$(git branch -r --contains "$commit" | grep "feature-" | sed 's/origin\///' | head -n 1)
+
+            # Check if the commit is in the last run
+            if [[ ! "$last_commits" =~ "$commit" && -n "$branch" ]]; then
               echo "Detected New Commit: $commit on Branch: $branch"
               has_changes=true
               latest_commits+="$commit "
@@ -59,5 +62,4 @@ jobs:
           else
             echo "No changes detected on any feature branches."
           fi
-
  
