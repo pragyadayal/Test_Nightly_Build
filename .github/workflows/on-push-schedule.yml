@@ -34,7 +34,7 @@ jobs:
           fi
           
           # Get latest commit and branch name for all feature branches
-          mapfile -t commits < <(git log --remotes --branches="feature-*" --pretty=format:'%H' -n 5)
+          mapfile -t commits < <(git log --remotes --branches="feature-* main" --pretty=format:'%H' -n 5)
 
           has_changes=false
           latest_commits=""
