@@ -22,7 +22,7 @@ jobs:
           echo "branches=$BRANCHES" >> $GITHUB_OUTPUT
 
       - name: Debug feature branches
-        run: echo "Feature branches: ${{ env.branches }}"
+        run: echo "Feature branches:${{ env.branches }}"
 
   trigger-for-each-branch:
     needs: list-feature-branches
