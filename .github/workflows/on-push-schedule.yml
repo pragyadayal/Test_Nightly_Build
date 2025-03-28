@@ -25,7 +25,7 @@ jobs:
         id: check
         run: |
           latest_commit=$(git log --remotes --branches="feature-*" --pretty=format:'%H' -n 1)
-          latest_branch=$(git branch -r --contains $latest_commit | grep "feature-" | head -n 1 | sed 's/origin\///')
+          latest_branch=$(git branch -r --contains $latest_commit)
 
           echo "Latest Commit ID: $latest_commit"
           echo "Changed Branch: $latest_branch"
@@ -39,11 +39,13 @@ jobs:
           fi
           
           if [ "$latest_commit" != "$last_commit" ] && [ -n "$latest_commit" ]; then
+            echo "has_changes=true" 
             echo "has_changes=true" >> "$GITHUB_ENV"
             echo "latest_commit=$latest_commit" >> "$GITHUB_ENV"
             echo "latest_branch=$latest_branch" >> "$GITHUB_ENV"
             echo "$latest_commit" > "$last_run_file"
           else
+            echo "has_changes=false"
             echo "has_changes=false" >> "$GITHUB_ENV"
             echo "No changes detected on any feature branches."
           fi
