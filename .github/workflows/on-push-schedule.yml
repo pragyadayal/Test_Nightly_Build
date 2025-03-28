@@ -2,7 +2,7 @@ name: On Push Scheduled Feature Branch Check
 
 on:
   schedule:
-    - cron: "41 8 * * *" # Runs daily at midnight (adjust as needed)
+    - cron: "50 8 * * *" # Runs daily at midnight (adjust as needed)
 
 jobs:
   check-commits:
@@ -25,9 +25,11 @@ jobs:
             last_commit=""
           fi
           if [ "$latest_commit" != "$last_commit" ]; then
+            echo "Change detected: true"
             echo "has_changes=true" >> "$GITHUB_ENV"
             echo "$latest_commit" > "$last_run_file"
           else
+            echo "Change detected: false"
             echo "has_changes=false" >> "$GITHUB_ENV"
           fi
 
