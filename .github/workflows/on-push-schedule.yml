@@ -33,7 +33,7 @@ jobs:
             last_commits=""
           fi
           
-          # Get latest commit and branch name for all feature branches
+          # Get latest commit and branch name for feature and main branches
           mapfile -t commits < <(git log --remotes --branches="feature-* main" --pretty=format:'%H' -n 5)
 
           has_changes=false
@@ -41,10 +41,10 @@ jobs:
           latest_branches=""
 
           for commit in "${commits[@]}"; do
-            # Get the branch name that directly contains the commit
-            branch=$(git branch -r --contains "$commit" | grep "feature-" | sed 's/origin\///' | head -n 1)
+            # Get the exact branch where this commit is the latest
+            branch=$(git for-each-ref --format '%(refname:short) %(objectname)' refs/remotes/origin/ | grep "$commit" | awk '{print $1}' | sed 's|origin/||' | grep -E "feature-|main" | head -n 1)
 
-            # Check if the commit is in the last run
+            # Check if the commit is new and has a valid branch
             if [[ ! "$last_commits" =~ "$commit" && -n "$branch" ]]; then
               echo "Detected New Commit: $commit on Branch: $branch"
               has_changes=true
@@ -60,6 +60,7 @@ jobs:
           if [ "$has_changes" = true ]; then
             echo "$latest_commits" > "$last_run_file"
           else
-            echo "No changes detected on any feature branches."
+            echo "No changes detected on any feature or main branches."
           fi
+
  
