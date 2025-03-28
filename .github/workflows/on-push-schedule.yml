@@ -26,6 +26,12 @@ jobs:
           touch "$last_run_file"
           cat "$last_run_file" || echo "No previous commits recorded."
 
+      - name: Debug File Paths
+        run: |
+          echo "GITHUB_WORKSPACE: $GITHUB_WORKSPACE"
+          echo "Last Run File Path: $GITHUB_WORKSPACE/.last_run_commits"
+          echo "Temp File Path: $GITHUB_WORKSPACE/.temp_last_run_commits"
+          ls -lah $GITHUB_WORKSPACE  # List contents to verify files
       - name: Detect changes in all branches
         id: check
         run: |
@@ -69,3 +75,4 @@ jobs:
             echo "No new changes detected."
             echo "has_changes=false" >> "$GITHUB_ENV"
           fi
+ 
