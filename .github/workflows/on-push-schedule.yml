@@ -1,4 +1,4 @@
-name: On Push Scheduled Feature Branch Check
+name: On Push Scheduled Branch Check
 
 on:
   schedule:
@@ -10,8 +10,7 @@ jobs:
     runs-on: self-hosted
     outputs:
       has_changes: ${{ env.has_changes }}
-      latest_commits: ${{ env.latest_commits }}
-      latest_branches: ${{ env.latest_branches }}
+      changed_branches: ${{ env.changed_branches }}
     steps:
       - name: Checkout repository (Fetch all history)
         uses: actions/checkout@v4
@@ -21,47 +20,44 @@ jobs:
       - name: Fetch latest changes
         run: git fetch --all
 
-      - name: Check for new commits on feature and main branches
+      - name: Detect changes in all branches
         id: check
         run: |
-          last_run_file="$GITHUB_WORKSPACE/.last_run_commit"
+          last_run_file="$GITHUB_WORKSPACE/.last_run_commits"
+          touch "$last_run_file"
 
-          # Retrieve last stored commit(s)
-          if [ -f "$last_run_file" ]; then
-            last_commits=$(cat "$last_run_file")
-          else
-            last_commits=""
-          fi
-          
-          # Get the latest commits from feature and main branches
-          mapfile -t commits < <(git log --remotes --branches="feature-* main" --pretty=format:'%H' -n 5)
-
+          echo "Checking for new commits in branches..."
           has_changes=false
-          latest_commits=""
-          latest_branches=""
+          changed_branches=()
 
-          for commit in "${commits[@]}"; do
-            # Get the exact branch where this commit exists
-            branch=$(git for-each-ref --format '%(refname:short) %(objectname)' refs/remotes/origin/ | grep "$commit" | awk '{print $1}' | sed 's|origin/||' | grep -E "feature-|main" | head -n 1)
+          # List of branches to monitor
+          branches=("main" "develop" $(git branch -r | grep "origin/feature-" | sed 's/origin\///'))
 
-            # Check if commit is new (not in last workflow execution)
-            if [[ ! "$last_commits" =~ "$commit" && -n "$branch" ]]; then
-              echo "Detected New Commit: $commit on Branch: $branch"
+          for branch in "${branches[@]}"; do
+            latest_commit=$(git log origin/$branch -1 --pretty=format:'%H')
+
+            # Read last recorded commit for this branch
+            last_commit=$(grep "^$branch:" "$last_run_file" | cut -d ':' -f2)
+
+            echo "Branch: $branch"
+            echo "Previous Commit: $last_commit"
+            echo "Latest Commit: $latest_commit"
+
+            if [ "$latest_commit" != "$last_commit" ]; then
+              echo "New commit detected on $branch"
               has_changes=true
-              latest_commits+="$commit "
-              latest_branches+="$branch "
+              changed_branches+=("$branch:$latest_commit")
             fi
           done
 
-          # Output the result
-          echo "has_changes=$has_changes" >> "$GITHUB_ENV"
-          echo "latest_commits=$latest_commits" >> "$GITHUB_ENV"
-          echo "latest_branches=$latest_branches" >> "$GITHUB_ENV"
-
-          # Store the latest commit(s) if new changes are found
+          # Save latest commits to file for future runs
           if [ "$has_changes" = true ]; then
-            echo "$latest_commits" > "$last_run_file"
+            echo "has_changes=true" >> "$GITHUB_ENV"
+            printf "%s\n" "${changed_branches[@]}" > "$last_run_file"
           else
-            echo "No new changes detected since last workflow run."
+            echo "No new changes detected."
+            echo "has_changes=false" >> "$GITHUB_ENV"
           fi
-          
+
+          # Save changed branches to GitHub outputs
+          echo "changed_branches=${changed_branches[@]}" >> "$GITHUB_ENV"
