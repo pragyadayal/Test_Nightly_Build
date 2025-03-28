@@ -9,6 +9,12 @@ on:
   workflow_dispatch:  # Allows manual triggering
 
 jobs:
+  debug-cron:
+    runs-on: self-hosted
+    steps:
+      - name: Show current time
+        run: date -u
+  
   check-file:
     runs-on: self-hosted
     steps:
