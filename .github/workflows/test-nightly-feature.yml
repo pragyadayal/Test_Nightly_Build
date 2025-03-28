@@ -2,20 +2,40 @@ name: Nightly Build Of Multiple Feature Branches
 
 on:
   schedule:
-    - cron: '21 8 * * *'  
-  push:
-    branches:
-      - feature-*  # Runs when any feature branch is pushed
+    - cron: '21 8 * * *'  # Runs daily at 08:21 UTC (1:51 PM IST)
   workflow_dispatch:  # Allows manual triggering
 
 jobs:
-  check-file:
+  list-feature-branches:
+    runs-on: self-hosted
+    outputs:
+      branches: ${{ steps.get-branches.outputs.branches }}
+    steps:
+      - name: Checkout main branch
+        uses: actions/checkout@v4
+
+      - name: Get all feature branches
+        id: get-branches
+        run: |
+          BRANCHES=$(git branch -r | grep -E 'origin/feature-' | sed 's/origin\///' | jq -R -s -c 'split("\n")[:-1]')
+          echo "branches=$BRANCHES" >> $GITHUB_ENV
+          echo "branches=$BRANCHES" >> $GITHUB_OUTPUT
+
+      - name: Debug feature branches
+        run: echo "Feature branches: ${{ env.branches }}"
+
+  trigger-for-each-branch:
+    needs: list-feature-branches
+    if: needs.list-feature-branches.outputs.branches != '[]'  # Run only if branches exist
+    strategy:
+      matrix:
+        branch: ${{ fromJson(needs.list-feature-branches.outputs.branches) }}
     runs-on: self-hosted
     steps:
-      - name: Checkout repository
+      - name: Checkout feature branch
         uses: actions/checkout@v4
         with:
-          ref: ${{ github.ref }}
+          ref: ${{ matrix.branch }}
 
       - name: Display contents of check.txt
         run: cat check.txt || echo "check.txt not found"
