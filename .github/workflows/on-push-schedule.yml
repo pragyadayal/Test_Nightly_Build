@@ -1,0 +1,43 @@
+name: Scheduled Feature Branch Check
+
+on:
+  schedule:
+    - cron: "*/15 * * * *" # Runs daily at midnight (adjust as needed)
+
+jobs:
+  check-commits:
+    runs-on: self-hosted
+    outputs:
+      has_changes: ${{ steps.check.outputs.has_changes }}
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Check for new commits on feature branches
+        id: check
+        run: |
+          latest_commit=$(git log --branches="feature-*" --pretty=format:'%H' -n 1)
+          echo "Latest Commit: $latest_commit"
+          last_run_file=".last_run_commit"
+          if [ -f "$last_run_file" ]; then
+            last_commit=$(cat "$last_run_file")
+          else
+            last_commit=""
+          fi
+          if [ "$latest_commit" != "$last_commit" ]; then
+            echo "has_changes=true" >> "$GITHUB_ENV"
+            echo "$latest_commit" > "$last_run_file"
+          else
+            echo "has_changes=false" >> "$GITHUB_ENV"
+          fi
+
+  run-task:
+    needs: check-commits
+    if: needs.check-commits.outputs.has_changes == 'true'
+    runs-on: self-hosted
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Display test.txt contents
+        run: cat test.txt
