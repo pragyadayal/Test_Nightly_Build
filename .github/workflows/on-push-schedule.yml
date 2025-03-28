@@ -10,8 +10,8 @@ jobs:
     runs-on: self-hosted
     outputs:
       has_changes: ${{ env.has_changes }}
-      latest_commit: ${{ env.latest_commit }}
-      latest_branch: ${{ env.latest_branch }}
+      latest_commits: ${{ env.latest_commits }}
+      latest_branches: ${{ env.latest_branches }}
     steps:
       - name: Checkout repository (Fetch all history)
         uses: actions/checkout@v4
@@ -24,53 +24,40 @@ jobs:
       - name: Check for new commits on feature branches
         id: check
         run: |
-          latest_commit=$(git log --remotes --branches="feature-*" --pretty=format:'%H' -n 1)
-          latest_branch=$(git branch -r --contains $latest_commit)
-
-          echo "Latest Commit ID: $latest_commit"
-          echo "Changed Branch: $latest_branch"
-
           last_run_file="$GITHUB_WORKSPACE/.last_run_commit"
-          
+
+          # Store last checked commits
           if [ -f "$last_run_file" ]; then
-            last_commit=$(cat "$last_run_file")
+            last_commits=$(cat "$last_run_file")
           else
-            last_commit=""
+            last_commits=""
           fi
           
-          if [ "$latest_commit" != "$last_commit" ] && [ -n "$latest_commit" ]; then
-            echo "has_changes=true" 
-            echo "has_changes=true" >> "$GITHUB_ENV"
-            echo "latest_commit=$latest_commit" >> "$GITHUB_ENV"
-            echo "latest_branch=$latest_branch" >> "$GITHUB_ENV"
-            echo "$latest_commit" > "$last_run_file"
+          # Get latest commit and branch name for all feature branches
+          mapfile -t commits < <(git log --remotes --branches="feature-*" --pretty=format:'%H' -n 5)
+          
+          has_changes=false
+          latest_commits=""
+          latest_branches=""
+
+          for commit in "${commits[@]}"; do
+            branch=$(git branch -r --contains "$commit" | grep "feature-" | sed 's/origin\///' | xargs)
+            if [[ ! "$last_commits" =~ "$commit" ]]; then
+              echo "Detected New Commit: $commit on Branch: $branch"
+              has_changes=true
+              latest_commits+="$commit "
+              latest_branches+="$branch "
+            fi
+          done
+
+          echo "has_changes=$has_changes" >> "$GITHUB_ENV"
+          echo "latest_commits=$latest_commits" >> "$GITHUB_ENV"
+          echo "latest_branches=$latest_branches" >> "$GITHUB_ENV"
+
+          if [ "$has_changes" = true ]; then
+            echo "$latest_commits" > "$last_run_file"
           else
-            echo "has_changes=false"
-            echo "has_changes=false" >> "$GITHUB_ENV"
             echo "No changes detected on any feature branches."
           fi
 
-  run-task:
-    needs: check-commits
-    if: needs.check-commits.outputs.has_changes == 'true'
-    runs-on: self-hosted
-    steps:
-      - name: Checkout specific feature branch
-        uses: actions/checkout@v4
-        with:
-          ref: ${{ needs.check-commits.outputs.latest_branch }}  # Checkout the detected branch
-          fetch-depth: 0
-
-      - name: Display detected commit and branch
-        run: |
-          echo "Triggered by commit: ${{ needs.check-commits.outputs.latest_commit }}"
-          echo "On branch: ${{ needs.check-commits.outputs.latest_branch }}"
-
-      - name: Display check.txt contents
-        run: |
-          if [ -f "check.txt" ]; then
-            echo "Contents of check.txt:"
-            cat check.txt
-          else
-            echo "check.txt not found in the branch."
-          fi
+ 
