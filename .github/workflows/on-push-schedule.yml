@@ -2,7 +2,9 @@ name: On Push Scheduled Feature Branch Check
 
 on:
   schedule:
-    - cron: "50 8 * * *" # Runs daily at midnight (adjust as needed)
+    - cron: "50 8 * * *"
+    
+  workflow_dispatch:
 
 jobs:
   check-commits:
