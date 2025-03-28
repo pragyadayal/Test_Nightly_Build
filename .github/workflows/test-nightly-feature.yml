@@ -1,0 +1,25 @@
+name: Nightly Build Of Multiple Feature Branches
+
+on:
+  schedule:
+    - cron: '*/5 * * * *'  # Runs every day at 4:30 AM UTC (10:00 AM IST)
+  push:
+    branches:
+      - feature-*  # Runs when any feature branch is pushed
+  workflow_dispatch:  # Allows manual triggering
+
+jobs:
+  debug-cron:
+    runs-on: self-hosted
+    steps:
+      - name: Show current time
+        run: date -u
+  
+  check-file:
+    runs-on: self-hosted
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Display contents of check.txt
+        run: cat check.txt || echo "check.txt not found"
