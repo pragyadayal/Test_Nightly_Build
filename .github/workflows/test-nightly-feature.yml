@@ -2,7 +2,7 @@ name: Nightly Build Of Multiple Feature Branches
 
 on:
   schedule:
-    - cron: '21 8 * * *'  # Runs daily at 08:21 UTC (1:51 PM IST)
+    - cron: '55 8 * * *'  # Runs daily at 08:21 UTC (1:51 PM IST)
   workflow_dispatch:  # Allows manual triggering
 
 jobs:
