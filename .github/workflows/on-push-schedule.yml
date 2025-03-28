@@ -21,19 +21,19 @@ jobs:
       - name: Fetch latest changes
         run: git fetch --all
 
-      - name: Check for new commits on feature branches
+      - name: Check for new commits on feature and main branches
         id: check
         run: |
           last_run_file="$GITHUB_WORKSPACE/.last_run_commit"
 
-          # Store last checked commits
+          # Retrieve last stored commit(s)
           if [ -f "$last_run_file" ]; then
             last_commits=$(cat "$last_run_file")
           else
             last_commits=""
           fi
           
-          # Get latest commit and branch name for feature and main branches
+          # Get the latest commits from feature and main branches
           mapfile -t commits < <(git log --remotes --branches="feature-* main" --pretty=format:'%H' -n 5)
 
           has_changes=false
@@ -41,10 +41,10 @@ jobs:
           latest_branches=""
 
           for commit in "${commits[@]}"; do
-            # Get the exact branch where this commit is the latest
+            # Get the exact branch where this commit exists
             branch=$(git for-each-ref --format '%(refname:short) %(objectname)' refs/remotes/origin/ | grep "$commit" | awk '{print $1}' | sed 's|origin/||' | grep -E "feature-|main" | head -n 1)
 
-            # Check if the commit is new and has a valid branch
+            # Check if commit is new (not in last workflow execution)
             if [[ ! "$last_commits" =~ "$commit" && -n "$branch" ]]; then
               echo "Detected New Commit: $commit on Branch: $branch"
               has_changes=true
@@ -53,14 +53,15 @@ jobs:
             fi
           done
 
+          # Output the result
           echo "has_changes=$has_changes" >> "$GITHUB_ENV"
           echo "latest_commits=$latest_commits" >> "$GITHUB_ENV"
           echo "latest_branches=$latest_branches" >> "$GITHUB_ENV"
 
+          # Store the latest commit(s) if new changes are found
           if [ "$has_changes" = true ]; then
             echo "$latest_commits" > "$last_run_file"
           else
-            echo "No changes detected on any feature or main branches."
+            echo "No new changes detected since last workflow run."
           fi
-
- 
+          
