@@ -2,7 +2,7 @@ name: Nightly Build Of Multiple Feature Branches
 
 on:
   schedule:
-    - cron: '50 4 * * *'  # Runs every day at 4:30 AM UTC (10:00 AM IST)
+    - cron: '04 5 * * *'  # Runs every day at 4:30 AM UTC (10:00 AM IST)
   push:
     branches:
       - feature-*  # Runs when any feature branch is pushed
