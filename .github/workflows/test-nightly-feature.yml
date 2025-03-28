@@ -2,7 +2,7 @@ name: Nightly Build Of Multiple Feature Branches
 
 on:
   schedule:
-    - cron: '30 7 * * *'  
+    - cron: '12 8 * * *'  
   push:
     branches:
       - feature-*  # Runs when any feature branch is pushed
