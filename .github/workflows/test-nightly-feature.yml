@@ -9,17 +9,13 @@ on:
   workflow_dispatch:  # Allows manual triggering
 
 jobs:
-  debug-cron:
-    runs-on: self-hosted
-    steps:
-      - name: Show current time
-        run: date -u
-  
   check-file:
     runs-on: self-hosted
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
+        with:
+          ref: ${{ github.ref }}
 
       - name: Display contents of check.txt
         run: cat check.txt || echo "check.txt not found"
