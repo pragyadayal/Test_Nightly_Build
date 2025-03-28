@@ -2,7 +2,7 @@ name: On push Scheduled Feature Branch Check
 
 on:
   schedule:
-    - cron: "0 9 * * *" 
+    - cron: "10 9 * * *" 
   workflow_dispatch:
 
 jobs:
@@ -16,7 +16,7 @@ jobs:
       - name: Checkout repository (Fetch all history)
         uses: actions/checkout@v4
         with:
-          fetch-depth: 0 # Ensure full commit history
+          fetch-depth: 0  # Ensure full commit history
 
       - name: Fetch latest changes
         run: git fetch --all
@@ -25,11 +25,11 @@ jobs:
         id: check
         run: |
           latest_commit=$(git log --remotes --branches="feature-*" --pretty=format:'%H' -n 1)
-          latest_branch=$(git branch -r --contains $latest_commit | grep "feature-" | head -n 1 | awk '{print $1}' | sed 's/origin\///')
-          
+          latest_branch=$(git branch -r --contains $latest_commit | grep "feature-" | head -n 1 | sed 's/origin\///')
+
           echo "Latest Commit ID: $latest_commit"
           echo "Branch: $latest_branch"
-          
+
           last_run_file="$GITHUB_WORKSPACE/.last_run_commit"
           
           if [ -f "$last_run_file" ]; then
@@ -39,19 +39,17 @@ jobs:
           fi
           
           if [ "$latest_commit" != "$last_commit" ] && [ -n "$latest_commit" ]; then
-            echo "Change detected: true"
-            echo "has_changes=true" >> "$GITHUB_ENV"
-            echo "latest_commit=$latest_commit" >> "$GITHUB_ENV"
-            echo "latest_branch=$latest_branch" >> "$GITHUB_ENV"
+            echo "::set-output name=has_changes::true"
+            echo "::set-output name=latest_commit::$latest_commit"
+            echo "::set-output name=latest_branch::$latest_branch"
             echo "$latest_commit" > "$last_run_file"
           else
-            echo "Change detected: false"
-            echo "has_changes=false" >> "$GITHUB_ENV"
+            echo "::set-output name=has_changes::false"
           fi
 
   run-task:
     needs: check-commits
-    if: needs.check-commits.outputs.has_changes == 'true'
+    if: needs.check-commits.outputs.has_changes == 'true'  # Ensures this runs only when changes are detected
     runs-on: self-hosted
     steps:
       - name: Checkout repository
@@ -63,4 +61,4 @@ jobs:
           echo "On branch: ${{ needs.check-commits.outputs.latest_branch }}"
 
       - name: Display test.txt contents
-        run: cat test.txt
+        run: cat check.txt
