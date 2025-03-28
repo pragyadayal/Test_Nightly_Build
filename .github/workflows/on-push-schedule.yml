@@ -1,4 +1,4 @@
-name: Scheduled Feature Branch Check
+name: On Push Scheduled Feature Branch Check
 
 on:
   schedule:
