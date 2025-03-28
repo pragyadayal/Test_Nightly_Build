@@ -1,10 +1,8 @@
-name: On Push Scheduled Feature Branch Check
+name: Scheduled Feature Branch Check
 
 on:
   schedule:
-    - cron: "50 8 * * *"
-    
-  workflow_dispatch:
+    - cron: "*/15 * * * *" # Runs every 15 minutes
 
 jobs:
   check-commits:
@@ -12,21 +10,29 @@ jobs:
     outputs:
       has_changes: ${{ steps.check.outputs.has_changes }}
     steps:
-      - name: Checkout repository
+      - name: Checkout repository (Fetch all history)
         uses: actions/checkout@v4
+        with:
+          fetch-depth: 0 # Ensures all commits & branches are fetched
+
+      - name: Fetch latest changes
+        run: git fetch --all
 
       - name: Check for new commits on feature branches
         id: check
         run: |
-          latest_commit=$(git log --branches="feature-*" --pretty=format:'%H' -n 1)
+          latest_commit=$(git log --remotes --branches="feature-*" --pretty=format:'%H' -n 1)
           echo "Latest Commit: $latest_commit"
-          last_run_file=".last_run_commit"
+          
+          last_run_file="$GITHUB_WORKSPACE/.last_run_commit"
+          
           if [ -f "$last_run_file" ]; then
             last_commit=$(cat "$last_run_file")
           else
             last_commit=""
           fi
-          if [ "$latest_commit" != "$last_commit" ]; then
+          
+          if [ "$latest_commit" != "$last_commit" ] && [ -n "$latest_commit" ]; then
             echo "Change detected: true"
             echo "has_changes=true" >> "$GITHUB_ENV"
             echo "$latest_commit" > "$last_run_file"
