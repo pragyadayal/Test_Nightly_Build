@@ -20,17 +20,24 @@ jobs:
       - name: Fetch latest changes
         run: git fetch --all
 
+      - name: Load previous commit data
+        run: |
+          last_run_file="$GITHUB_WORKSPACE/.last_run_commits"
+          touch "$last_run_file"
+          cat "$last_run_file" || echo "No previous commits recorded."
+
       - name: Detect changes in all branches
         id: check
         run: |
           last_run_file="$GITHUB_WORKSPACE/.last_run_commits"
+          temp_file="$GITHUB_WORKSPACE/.temp_last_run_commits"
           touch "$last_run_file"
+          touch "$temp_file"
 
           echo "Checking for new commits in branches..."
           has_changes=false
           changed_branches=()
 
-          # List of branches to monitor
           branches=("main" "develop" $(git branch -r | grep "origin/feature-" | sed 's/origin\///'))
 
           for branch in "${branches[@]}"; do
@@ -43,21 +50,22 @@ jobs:
             echo "Previous Commit: $last_commit"
             echo "Latest Commit: $latest_commit"
 
-            if [ "$latest_commit" != "$last_commit" ]; then
+            if [ "$latest_commit" != "$last_commit" ] && [ -n "$latest_commit" ]; then
               echo "New commit detected on $branch"
               has_changes=true
               changed_branches+=("$branch:$latest_commit")
             fi
+
+            # Save the latest commit to temp file
+            echo "$branch:$latest_commit" >> "$temp_file"
           done
 
-          # Save latest commits to file for future runs
+          # If changes are detected, update the last_run_commits file
           if [ "$has_changes" = true ]; then
             echo "has_changes=true" >> "$GITHUB_ENV"
-            printf "%s\n" "${changed_branches[@]}" > "$last_run_file"
+            echo "changed_branches=${changed_branches[@]}" >> "$GITHUB_ENV"
+            mv "$temp_file" "$last_run_file"  # Persist commit data
           else
             echo "No new changes detected."
             echo "has_changes=false" >> "$GITHUB_ENV"
           fi
-
-          # Save changed branches to GitHub outputs
-          echo "changed_branches=${changed_branches[@]}" >> "$GITHUB_ENV"
