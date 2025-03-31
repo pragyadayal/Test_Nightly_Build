@@ -7,7 +7,7 @@ on:
 
 jobs:
   check-new-commits:
-    runs-on: ubuntu-latest
+    runs-on: self-hosted
     outputs:
       changed_feature_branches: ${{ steps.detect-changes.outputs.changed_feature_branches }}
     steps:
