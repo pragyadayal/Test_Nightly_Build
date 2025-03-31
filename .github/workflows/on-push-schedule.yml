@@ -25,10 +25,10 @@ jobs:
           echo "Checking for new commits..."
           for branch in $ALL_BRANCHES; do
             latest_commit=$(git rev-parse origin/$branch)
-
+          
             # Find last successful workflow commit (Fallback: last merge-base)
             last_build_commit=$(git log --format="%H" -n 1 --grep "Workflow Run ID" || git merge-base origin/$branch main)
-
+          
             if [ "$latest_commit" != "$last_build_commit" ]; then
               echo "✅ New commits detected on $branch: $latest_commit"
               if [[ "$branch" == feature-* ]]; then
@@ -38,6 +38,7 @@ jobs:
               echo "❌ No new commits on $branch"
             fi
           done
+
 
           echo "Changed feature branches: ${CHANGED_FEATURE_BRANCHES[*]}"
           CHANGED_BRANCHES_JSON="[$(IFS=,; echo "${CHANGED_FEATURE_BRANCHES[*]}")]"
