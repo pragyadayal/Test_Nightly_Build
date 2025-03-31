@@ -22,6 +22,7 @@ jobs:
           BRANCHES=("main" "develop" "feature-abc" "feature-mno")
           CHANGED_BRANCHES=()
 
+           echo "Checking for new commits..."
           for branch in "${BRANCHES[@]}"; do
             latest_commit=$(git ls-remote origin refs/heads/$branch | awk '{print $1}')
             prev_commit_file=".git/prev_commit_$branch"
@@ -30,10 +31,12 @@ jobs:
               prev_commit=$(cat "$prev_commit_file")
               if [ "$prev_commit" != "$latest_commit" ]; then
                 CHANGED_BRANCHES+=("$branch")
-                echo "New commit detected on $branch: $latest_commit"
+                echo "✅ New commit detected on $branch: $latest_commit"
+              else
+                echo "❌ No new commit on $branch"
               fi
             else
-              echo "First-time check for $branch. Commit: $latest_commit"
+              echo "🆕 First-time check for $branch. Commit: $latest_commit"
               CHANGED_BRANCHES+=("$branch")
             fi
 
@@ -41,7 +44,8 @@ jobs:
             echo "$latest_commit" > "$prev_commit_file"
           done
 
-          # Export changed branches for next job
+          # Print summary of detected changes
+          echo "Changed branches: ${CHANGED_BRANCHES[*]}"
           echo "changed_branches=${CHANGED_BRANCHES[*]}" >> $GITHUB_ENV
           echo "::set-output name=changed_branches::${CHANGED_BRANCHES[*]}"
             
