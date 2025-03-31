@@ -24,14 +24,14 @@ jobs:
           ALL_BRANCHES=$(git branch -r | grep -oE 'origin/[^ ]+' | sed 's/origin\///')
           CHANGED_FEATURE_BRANCHES=()
 
-          echo "Checking for new commits..."
+           echo "Checking for new commits..."
           for branch in $ALL_BRANCHES; do
-            latest_commit=$(git rev-parse origin/$branch)
-
-            # Find the last built commit dynamically
-            last_build_commit=$(git rev-parse HEAD~1 2>/dev/null || echo "")
-
-            if [ "$latest_commit" != "$last_build_commit" ] && [ -n "$latest_commit" ]; then
+            latest_commit=$(git rev-parse origin/$branch)  # Get latest commit of remote branch
+          
+            # Find last build commit using the previous commit on this specific branch
+            last_build_commit=$(git rev-list --max-parents=0 origin/$branch 2>/dev/null)
+          
+            if [ "$latest_commit" != "$last_build_commit" ]; then
               echo "✅ New commits detected on $branch: $latest_commit"
               if [[ "$branch" == feature-* ]]; then
                 CHANGED_FEATURE_BRANCHES+=("\"$branch\"")
@@ -44,7 +44,7 @@ jobs:
           echo "Changed feature branches: ${CHANGED_FEATURE_BRANCHES[*]}"
           CHANGED_BRANCHES_JSON="[$(IFS=,; echo "${CHANGED_FEATURE_BRANCHES[*]}")]"
           echo "::set-output name=changed_feature_branches::$CHANGED_BRANCHES_JSON"
-          
+                    
   build-feature-branches:
     needs: check-new-commits
     if: needs.check-new-commits.outputs.changed_feature_branches != '[]'
