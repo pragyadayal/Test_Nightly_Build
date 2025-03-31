@@ -14,23 +14,37 @@ jobs:
       - name: Checkout the repository
         uses: actions/checkout@v4
         with:
-          fetch-depth: 0  # Fetch full commit history for accurate comparison
+          fetch-depth: 0  # Fetch full commit history
+
+      - name: Restore Previous Commit Hashes
+        id: restore-hashes
+        run: |
+          mkdir -p commit_hashes
+          if gh run download --name commit_hashes; then
+            echo "Previous commit hashes restored."
+          else
+            echo "No previous commit hashes found. First run!"
+          fi
 
       - name: Detect new commits on all branches
         id: detect-changes
         run: |
-          # Fetch all branches
           git fetch --all
           ALL_BRANCHES=$(git branch -r | grep -oE 'origin/[^ ]+' | sed 's/origin\///')
           CHANGED_FEATURE_BRANCHES=()
 
-           echo "Checking for new commits..."
+          echo "Checking for new commits..."
           for branch in $ALL_BRANCHES; do
-            latest_commit=$(git rev-parse origin/$branch)  # Get latest commit of remote branch
-          
-            # Find last build commit using the previous commit on this specific branch
-            last_build_commit=$(git rev-list --max-parents=0 origin/$branch 2>/dev/null)
-          
+            latest_commit=$(git rev-parse origin/$branch)
+
+            # Load stored commit hash for this branch
+            previous_commit_file="commit_hashes/${branch}.txt"
+            if [ -f "$previous_commit_file" ]; then
+              last_build_commit=$(cat "$previous_commit_file")
+            else
+              last_build_commit=""
+            fi
+
             if [ "$latest_commit" != "$last_build_commit" ]; then
               echo "✅ New commits detected on $branch: $latest_commit"
               if [[ "$branch" == feature-* ]]; then
@@ -39,12 +53,21 @@ jobs:
             else
               echo "❌ No new commits on $branch"
             fi
+
+            # Save latest commit for next run
+            echo "$latest_commit" > "commit_hashes/${branch}.txt"
           done
 
           echo "Changed feature branches: ${CHANGED_FEATURE_BRANCHES[*]}"
           CHANGED_BRANCHES_JSON="[$(IFS=,; echo "${CHANGED_FEATURE_BRANCHES[*]}")]"
           echo "::set-output name=changed_feature_branches::$CHANGED_BRANCHES_JSON"
-                    
+
+      - name: Store Commit Hashes for Next Run
+        if: always()
+        run: |
+          tar -czf commit_hashes.tar.gz commit_hashes
+          gh run upload commit_hashes.tar.gz --name commit_hashes
+
   build-feature-branches:
     needs: check-new-commits
     if: needs.check-new-commits.outputs.changed_feature_branches != '[]'
@@ -57,7 +80,7 @@ jobs:
         uses: actions/checkout@v4
         with:
           ref: ${{ matrix.branch }}
-
+          
       - name: Display check.txt content
         run: cat check.txt
            
