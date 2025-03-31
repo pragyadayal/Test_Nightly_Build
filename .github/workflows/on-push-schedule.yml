@@ -7,69 +7,44 @@ on:
 
 jobs:
   check-new-commits:
-    runs-on: self-hosted
+    runs-on: ubuntu-latest
     outputs:
       changed_feature_branches: ${{ steps.detect-changes.outputs.changed_feature_branches }}
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
         with:
-          fetch-depth: 0  # Get all history
-
-      - name: Restore previous commit hashes
-        id: cache-restore
-        uses: actions/cache@v3
-        with:
-          path: .commit_hashes
-          key: commit-hashes-${{ github.run_id }}
-          restore-keys: commit-hashes-
+          fetch-depth: 0  # Ensures full commit history is available
 
       - name: Detect new commits on all branches
         id: detect-changes
         run: |
-          mkdir -p .commit_hashes
           ALL_BRANCHES=$(git branch -r | grep -oE 'origin/[^ ]+' | sed 's/origin\///')
           CHANGED_FEATURE_BRANCHES=()
 
           echo "Checking for new commits..."
           for branch in $ALL_BRANCHES; do
-            latest_commit=$(git ls-remote origin refs/heads/$branch | awk '{print $1}')
-            prev_commit_file=".commit_hashes/$branch"
+            latest_commit=$(git rev-parse origin/$branch)
+            last_build_commit=$(git rev-list --max-parents=0 origin/$branch) # Oldest commit as reference
 
-            if [ -f "$prev_commit_file" ]; then
-              prev_commit=$(cat "$prev_commit_file")
-              if [ "$prev_commit" != "$latest_commit" ]; then
-                echo "✅ New commit detected on $branch: $latest_commit"
-                if [[ "$branch" == feature-* ]]; then
-                  CHANGED_FEATURE_BRANCHES+=("\"$branch\"")  # Store as JSON-safe array
-                fi
-              else
-                echo "❌ No new commit on $branch"
+            # Check if there are new commits since the last build
+            if [ "$latest_commit" != "$last_build_commit" ]; then
+              echo "✅ New commits detected on $branch: $latest_commit"
+              if [[ "$branch" == feature-* ]]; then
+                CHANGED_FEATURE_BRANCHES+=("\"$branch\"")
               fi
             else
-              echo "🆕 First-time check for $branch. Commit: $latest_commit"
-              if [[ "$branch" == feature-* ]]; then
-                CHANGED_FEATURE_BRANCHES+=("\"$branch\"")  # Store as JSON-safe array
-              fi
+              echo "❌ No new commits on $branch"
             fi
-
-            echo "$latest_commit" > "$prev_commit_file"
           done
 
           echo "Changed feature branches: ${CHANGED_FEATURE_BRANCHES[*]}"
           CHANGED_BRANCHES_JSON="[$(IFS=,; echo "${CHANGED_FEATURE_BRANCHES[*]}")]"
-          echo "changed_feature_branches=$CHANGED_BRANCHES_JSON" >> $GITHUB_ENV
           echo "::set-output name=changed_feature_branches::$CHANGED_BRANCHES_JSON"
-
-      - name: Save commit hashes
-        uses: actions/cache@v3
-        with:
-          path: .commit_hashes
-          key: commit-hashes-${{ github.run_id }}
 
   build-feature-branches:
     needs: check-new-commits
-    if: needs.check-new-commits.outputs.changed_feature_branches != '[]'  # Run only if there's a change
+    if: needs.check-new-commits.outputs.changed_feature_branches != '[]'
     strategy:
       matrix:
         branch: ${{ fromJson(needs.check-new-commits.outputs.changed_feature_branches) }}
@@ -82,5 +57,4 @@ jobs:
 
       - name: Display check.txt content
         run: cat check.txt
-            
            
