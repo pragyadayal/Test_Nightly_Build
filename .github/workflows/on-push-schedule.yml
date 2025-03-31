@@ -7,9 +7,9 @@ on:
 
 jobs:
   check-new-commits:
-    runs-on: ubuntu-latest
+    runs-on: self-hosted
     outputs:
-      changed_branches: ${{ steps.detect-changes.outputs.changed_branches }}
+      changed_feature_branches: ${{ steps.detect-changes.outputs.changed_feature_branches }}
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
@@ -24,43 +24,62 @@ jobs:
           key: commit-hashes-${{ github.run_id }}
           restore-keys: commit-hashes-
 
-      - name: Detect new commits on branches
+      - name: Detect new commits on all branches
         id: detect-changes
         run: |
           mkdir -p .commit_hashes
-          BRANCHES=("main" "develop" "feature-abc" "feature-mno")
-          CHANGED_BRANCHES=()
+          ALL_BRANCHES=$(git branch -r | grep -oE 'origin/[^ ]+' | sed 's/origin\///')
+          CHANGED_FEATURE_BRANCHES=()
 
           echo "Checking for new commits..."
-          for branch in "${BRANCHES[@]}"; do
+          for branch in $ALL_BRANCHES; do
             latest_commit=$(git ls-remote origin refs/heads/$branch | awk '{print $1}')
             prev_commit_file=".commit_hashes/$branch"
 
             if [ -f "$prev_commit_file" ]; then
               prev_commit=$(cat "$prev_commit_file")
               if [ "$prev_commit" != "$latest_commit" ]; then
-                CHANGED_BRANCHES+=("$branch")
                 echo "✅ New commit detected on $branch: $latest_commit"
+                if [[ "$branch" == feature-* ]]; then
+                  CHANGED_FEATURE_BRANCHES+=("$branch")
+                fi
               else
                 echo "❌ No new commit on $branch"
               fi
             else
               echo "🆕 First-time check for $branch. Commit: $latest_commit"
-              CHANGED_BRANCHES+=("$branch")
+              if [[ "$branch" == feature-* ]]; then
+                CHANGED_FEATURE_BRANCHES+=("$branch")
+              fi
             fi
 
-            # Save latest commit hash
             echo "$latest_commit" > "$prev_commit_file"
           done
 
-          echo "Changed branches: ${CHANGED_BRANCHES[*]}"
-          echo "changed_branches=${CHANGED_BRANCHES[*]}" >> $GITHUB_ENV
-          echo "::set-output name=changed_branches::${CHANGED_BRANCHES[*]}"
+          echo "Changed feature branches: ${CHANGED_FEATURE_BRANCHES[*]}"
+          echo "changed_feature_branches=${CHANGED_FEATURE_BRANCHES[*]}" >> $GITHUB_ENV
+          echo "::set-output name=changed_feature_branches::${CHANGED_FEATURE_BRANCHES[*]}"
 
       - name: Save commit hashes
         uses: actions/cache@v3
         with:
           path: .commit_hashes
           key: commit-hashes-${{ github.run_id }}
+
+  build-feature-branches:
+    needs: check-new-commits
+    if: needs.check-new-commits.outputs.changed_feature_branches != ''
+    strategy:
+      matrix:
+        branch: ${{ fromJson('["feature-abc", "feature-mno"]') }}  # Modify dynamically if needed
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout ${{ matrix.branch }}
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ matrix.branch }}
+
+      - name: Display check.txt content
+        run: cat check.txt
             
            
