@@ -36,43 +36,49 @@ jobs:
         id: check
         run: |
           last_run_file="$GITHUB_WORKSPACE/.last_run_commits"
-          temp_file="$GITHUB_WORKSPACE/.temp_last_run_commits"
-          touch "$last_run_file"
-          touch "$temp_file"
-
-          echo "Checking for new commits in branches..."
-          has_changes=false
-          changed_branches=()
-
-          branches=("main" "develop" $(git branch -r | grep "origin/feature-" | sed 's/origin\///'))
-
-          for branch in "${branches[@]}"; do
-            latest_commit=$(git log origin/$branch -1 --pretty=format:'%H')
-
-            # Read last recorded commit for this branch
-            last_commit=$(grep "^$branch:" "$last_run_file" | cut -d ':' -f2)
-
-            echo "Branch: $branch"
-            echo "Previous Commit: $last_commit"
-            echo "Latest Commit: $latest_commit"
-
-            if [ "$latest_commit" != "$last_commit" ] && [ -n "$latest_commit" ]; then
-              echo "New commit detected on $branch"
-              has_changes=true
-              changed_branches+=("$branch:$latest_commit")
+           last_run_file="$GITHUB_WORKSPACE/.last_run_commits"
+            temp_file="$GITHUB_WORKSPACE/.temp_last_run_commits"
+            
+            # Ensure the previous commit file exists
+            if [ ! -f "$last_run_file" ]; then
+              touch "$last_run_file"
             fi
-
-            # Save the latest commit to temp file
-            echo "$branch:$latest_commit" >> "$temp_file"
-          done
-
-          # If changes are detected, update the last_run_commits file
-          if [ "$has_changes" = true ]; then
-            echo "has_changes=true" >> "$GITHUB_ENV"
-            echo "changed_branches=${changed_branches[@]}" >> "$GITHUB_ENV"
-            mv "$temp_file" "$last_run_file"  # Persist commit data
-          else
-            echo "No new changes detected."
-            echo "has_changes=false" >> "$GITHUB_ENV"
-          fi
- 
+            
+            echo "Checking for new commits in branches..."
+            has_changes=false
+            changed_branches=()
+            
+            branches=("main" "develop" $(git branch -r | grep "origin/feature-" | sed 's/origin\///'))
+            
+            for branch in "${branches[@]}"; do
+              latest_commit=$(git log origin/$branch -1 --pretty=format:'%H')
+            
+              # Read last recorded commit for this branch
+              last_commit=$(grep "^$branch:" "$last_run_file" | cut -d ':' -f2)
+            
+              echo "Branch: $branch"
+              echo "Previous Commit: $last_commit"
+              echo "Latest Commit: $latest_commit"
+            
+              if [ "$latest_commit" != "$last_commit" ] && [ -n "$latest_commit" ]; then
+                echo "New commit detected on $branch"
+                has_changes=true
+                changed_branches+=("$branch:$latest_commit")
+              fi
+            
+              # Append the latest commit to temp file (preserve history)
+              grep -v "^$branch:" "$last_run_file" > "$temp_file"  # Remove old entry for branch
+              echo "$branch:$latest_commit" >> "$temp_file"        # Add new commit for branch
+              mv "$temp_file" "$last_run_file"                     # Update file
+            done
+            
+            # If changes are detected, update environment variables
+            if [ "$has_changes" = true ]; then
+              echo "has_changes=true" >> "$GITHUB_ENV"
+              echo "changed_branches=${changed_branches[@]}" >> "$GITHUB_ENV"
+            else
+              echo "No new changes detected."
+              echo "has_changes=false" >> "$GITHUB_ENV"
+            fi
+            
+           
