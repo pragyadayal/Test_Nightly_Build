@@ -11,10 +11,10 @@ jobs:
     outputs:
       changed_feature_branches: ${{ steps.detect-changes.outputs.changed_feature_branches }}
     steps:
-      - name: Checkout repository
+      - name: Checkout the repository
         uses: actions/checkout@v4
         with:
-          fetch-depth: 0  # Ensures full commit history is available
+          fetch-depth: 50  # Fetch history to compare commits
 
       - name: Detect new commits on all branches
         id: detect-changes
@@ -25,9 +25,10 @@ jobs:
           echo "Checking for new commits..."
           for branch in $ALL_BRANCHES; do
             latest_commit=$(git rev-parse origin/$branch)
-            last_build_commit=$(git rev-list --max-parents=0 origin/$branch) # Oldest commit as reference
 
-            # Check if there are new commits since the last build
+            # Find last successful workflow commit (Fallback: last merge-base)
+            last_build_commit=$(git log --format="%H" -n 1 --grep "Workflow Run ID" || git merge-base origin/$branch main)
+
             if [ "$latest_commit" != "$last_build_commit" ]; then
               echo "✅ New commits detected on $branch: $latest_commit"
               if [[ "$branch" == feature-* ]]; then
