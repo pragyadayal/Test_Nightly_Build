@@ -1,0 +1,14 @@
+name: Scheduled Build
+
+on:
+  schedule:
+    - cron: "*/5 * * * *"  # Runs every 5 minutes
+
+  workflow_dispatch:  # Allows manual trigger
+
+jobs:
+  build:
+    runs-on: self-hosted  # Use your self-hosted runner
+    steps:
+      - name: Display current time
+        run: echo "Build triggered at $(date)"
