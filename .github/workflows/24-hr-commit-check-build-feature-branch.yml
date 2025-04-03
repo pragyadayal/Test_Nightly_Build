@@ -1,5 +1,4 @@
-name: Trigger Feature Branch Builds
-
+name: 24-hr-commit-check-build-feature-branch
 on:
   schedule:
     - cron: "0 0 * * *"  
