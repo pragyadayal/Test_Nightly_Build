@@ -50,7 +50,10 @@ jobs:
 
       - name: Trigger Jenkins for Feature Branches
         if: env.changed_branches != ''
+        env:
+          JENKINS_URL: http://jenkins.example.com
+          JENKINS_TOKEN: ${{ secrets.MY_JENKINS_TOKEN }}
         run: |
           for branch in ${{ env.changed_branches }}; do
-            curl -X POST "http://jenkins.example.com/job/Feature_Build/buildWithParameters?token=MY_SECRET_TOKEN&BRANCH=$branch"
+            curl -X POST "http://127.0.0.1:8080/job/OnSchedule_Feature_Branch_Build//buildWithParameters?token=MY_JENKINS_TOKEN&BRANCH=$branch"
           done
