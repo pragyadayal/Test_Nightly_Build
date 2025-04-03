@@ -30,20 +30,21 @@ jobs:
             NOW=$(date +%s)
             DIFF=$((NOW - LAST_COMMIT_TIME))
             if [ $DIFF -le 86400 ]; then
-              RECENT_BRANCHES+=("$BRANCH")
+              RECENT_BRANCHES+=("\"$BRANCH\"")
             fi
           done
-          CHANGED_BRANCHES=$(IFS=,; echo "${RECENT_BRANCHES[*]}")
+          CHANGED_BRANCHES="[${RECENT_BRANCHES[*]}]"
           echo "Branches with recent commits: $CHANGED_BRANCHES"
+          echo "branches=$CHANGED_BRANCHES" >> $GITHUB_ENV
           echo "branches=$CHANGED_BRANCHES" >> $GITHUB_OUTPUT
 
   build:
     needs: check-commits
-    if: ${{ needs.check-commits.outputs.changed_branches != '' }}
+    if: ${{ needs.check-commits.outputs.changed_branches != '[]' }}
     runs-on: ubuntu-latest
     strategy:
       matrix:
-        branch: ${{ fromJson('["' + needs.check-commits.outputs.changed_branches + '"]') }}
+        branch: ${{ fromJson(needs.check-commits.outputs.changed_branches) }}
     steps:
       - name: Checkout Feature Branch
         uses: actions/checkout@v4
