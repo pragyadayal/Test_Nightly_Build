@@ -1,0 +1,58 @@
+name: Trigger Feature Branch Builds
+
+on:
+  schedule:
+    - cron: "0 0 * * *"  # Runs daily at midnight UTC
+  workflow_dispatch:  # Allows manual triggering
+
+jobs:
+  check-commits:
+    runs-on: ubuntu-latest
+    outputs:
+      changed_branches: ${{ steps.filter.outputs.branches }}
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0  # Get full history to check commits
+
+      - name: Get Feature Branches
+        id: get_branches
+        run: |
+          BRANCHES=$(git branch -r | grep 'origin/feature-' | sed 's/origin\///')
+          echo "Found branches: $BRANCHES"
+          echo "branches=$BRANCHES" >> $GITHUB_ENV
+
+      - name: Find Branches with Recent Commits
+        id: filter
+        run: |
+          RECENT_BRANCHES=()
+          for BRANCH in ${{ env.branches }}; do
+            LAST_COMMIT_TIME=$(git log -1 --format=%ct origin/$BRANCH)
+            NOW=$(date +%s)
+            DIFF=$((NOW - LAST_COMMIT_TIME))
+            if [ $DIFF -le 86400 ]; then
+              RECENT_BRANCHES+=("$BRANCH")
+            fi
+          done
+          CHANGED_BRANCHES=$(IFS=,; echo "${RECENT_BRANCHES[*]}")
+          echo "Branches with recent commits: $CHANGED_BRANCHES"
+          echo "branches=$CHANGED_BRANCHES" >> $GITHUB_OUTPUT
+
+  build:
+    needs: check-commits
+    if: ${{ needs.check-commits.outputs.changed_branches != '' }}
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        branch: ${{ fromJson('["' + needs.check-commits.outputs.changed_branches + '"]') }}
+    steps:
+      - name: Checkout Feature Branch
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ matrix.branch }}
+
+      - name: Run Build (Replace this with actual build command)
+        run: |
+          echo "Building branch: ${{ matrix.branch }}"
+          # Add your build steps here
