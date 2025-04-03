@@ -35,7 +35,11 @@ jobs:
               RECENT_BRANCHES+=("\"$BRANCH\"")
             fi
           done
-          CHANGED_BRANCHES="[${RECENT_BRANCHES[*]}]"
+          if [ ${#RECENT_BRANCHES[@]} -eq 0 ]; then
+            CHANGED_BRANCHES="[]"  # Empty JSON array
+          else
+            CHANGED_BRANCHES="[${RECENT_BRANCHES[*]}]"
+          fi
           echo "Branches with recent commits: $CHANGED_BRANCHES"
           echo "branches=$CHANGED_BRANCHES" >> $GITHUB_ENV
           echo "branches=$CHANGED_BRANCHES" >> $GITHUB_OUTPUT
