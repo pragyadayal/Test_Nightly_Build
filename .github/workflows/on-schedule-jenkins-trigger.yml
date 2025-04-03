@@ -1,0 +1,56 @@
+name: On Schedule Jenkins Trigger
+
+on:
+  schedule:
+    - cron: "0 2 * * *"  # Runs at 2 AM UTC daily
+  workflow_dispatch:  # Allows manual trigger
+
+jobs:
+  detect-changes:
+    runs-on: ubuntu-latest
+    outputs:
+      changed_branches: ${{ steps.detect.outputs.changed_branches }}
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0  # Get full commit history
+
+      - name: Fetch All Branches
+        run: git fetch --all
+
+      - name: Detect New Commits
+        id: detect
+        run: |
+          touch prev_commit_hashes.txt  # Ensure file exists
+          declare -A prev_commits
+          
+          # Read previous commit hashes if available
+          if [[ -f prev_commit_hashes.txt ]]; then
+            while read -r branch hash; do
+              prev_commits[$branch]=$hash
+            done < prev_commit_hashes.txt
+          fi
+
+          changed_branches=()
+          for branch in $(git branch -r | grep -oE 'origin/[^ ]+' | sed 's/origin\///'); do
+            latest_commit=$(git rev-parse origin/$branch)
+            
+            if [[ "${prev_commits[$branch]}" != "$latest_commit" ]]; then
+              echo "✅ New commit detected on $branch: $latest_commit"
+              if [[ "$branch" == feature-* ]]; then
+                changed_branches+=("$branch")
+              fi
+            else
+              echo "❌ No new commits on $branch"
+            fi
+          done
+
+          echo "changed_branches=${changed_branches[@]}" >> $GITHUB_ENV
+
+      - name: Trigger Jenkins for Feature Branches
+        if: env.changed_branches != ''
+        run: |
+          for branch in ${{ env.changed_branches }}; do
+            curl -X POST "http://jenkins.example.com/job/Feature_Build/buildWithParameters?token=MY_SECRET_TOKEN&BRANCH=$branch"
+          done
