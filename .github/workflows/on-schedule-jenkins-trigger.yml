@@ -6,48 +6,48 @@ on:
   workflow_dispatch:  # Allows manual trigger
 
 jobs:
-  detect-changes:
+  check-commits:
     runs-on: ubuntu-latest
     outputs:
-      changed_branches: ${{ steps.detect.outputs.changed_branches }}
+      changed_branches: ${{ steps.filter.outputs.branches }}
     steps:
       - name: Checkout Repository
         uses: actions/checkout@v4
         with:
-          fetch-depth: 0  # Get full commit history
+          fetch-depth: 0  # Get full history to check commits
 
-      - name: Fetch All Branches
-        run: git fetch --all
-
-      - name: Detect New Commits
-        id: detect
+      - name: Get Feature Branches
+        id: get_branches
         run: |
-          touch prev_commit_hashes.txt  # Ensure file exists
-          declare -A prev_commits
-          
-          # Read previous commit hashes if available
-          if [[ -f prev_commit_hashes.txt ]]; then
-            while read -r branch hash; do
-              prev_commits[$branch]=$hash
-            done < prev_commit_hashes.txt
-          fi
+          BRANCHES=$(git branch -r | grep 'origin/feature-' | sed 's/origin\///' | tr '\n' ' ')
+          echo "Found branches: $BRANCHES"
+          echo "branches=$BRANCHES" >> $GITHUB_ENV
 
-          changed_branches=()
-          for branch in $(git branch -r | grep -oE 'origin/[^ ]+' | sed 's/origin\///'); do
-            latest_commit=$(git rev-parse origin/$branch)
-            
-            if [[ "${prev_commits[$branch]}" != "$latest_commit" ]]; then
-              echo "✅ New commit detected on $branch: $latest_commit"
-              if [[ "$branch" == feature-* ]]; then
-                changed_branches+=("$branch")
-              fi
-            else
-              echo "❌ No new commits on $branch"
+      - name: Find Branches with Recent Commits
+        id: filter
+        run: |
+          RECENT_BRANCHES=()
+          for BRANCH in ${{ env.branches }}; do
+            LAST_COMMIT_TIME=$(git log -1 --format=%ct origin/$BRANCH)
+            NOW=$(date +%s)
+            DIFF=$((NOW - LAST_COMMIT_TIME))
+            if [ $DIFF -le 86400 ]; then
+              RECENT_BRANCHES+=("\"$BRANCH\"")
             fi
           done
+          CHANGED_BRANCHES="[${RECENT_BRANCHES[*]}]"
+          echo "Branches with recent commits: $CHANGED_BRANCHES"
+          echo "branches=$CHANGED_BRANCHES" >> $GITHUB_ENV
+          echo "branches=$CHANGED_BRANCHES" >> $GITHUB_OUTPUT
 
-          echo "changed_branches=${changed_branches[@]}" >> $GITHUB_ENV
-
+  trigger-jenkins:
+    needs: check-commits
+    if: ${{ needs.check-commits.outputs.changed_branches != '[]' }}
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        branch: ${{ fromJson(needs.check-commits.outputs.changed_branches) }}
+    steps:
       - name: Trigger Jenkins for Feature Branches
         if: env.changed_branches != ''
         env:
