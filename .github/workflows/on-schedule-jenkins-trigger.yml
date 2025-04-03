@@ -39,6 +39,12 @@ jobs:
           echo "Branches with recent commits: $CHANGED_BRANCHES"
           echo "branches=$CHANGED_BRANCHES" >> $GITHUB_ENV
           echo "branches=$CHANGED_BRANCHES" >> $GITHUB_OUTPUT
+      
+      - name: Debug Output
+        run: |
+          echo "Final Changed Branches Output:"
+          echo "${{ needs.check-commits.outputs.changed_branches }}"
+
 
   trigger-jenkins:
     needs: check-commits
