@@ -1,4 +1,4 @@
-name: 24-hr-commit-check-build-feature-branch
+name: Jenkins Trigger
 
 on:
   schedule:
