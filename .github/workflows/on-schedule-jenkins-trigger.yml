@@ -1,9 +1,9 @@
-name: On Schedule Jenkins Trigger
+name: 24-hr-commit-check-build-feature-branch
 
 on:
   schedule:
-    - cron: "0 2 * * *"  # Runs at 2 AM UTC daily
-  workflow_dispatch:  # Allows manual trigger
+    - cron: "0 0 * * *"
+  workflow_dispatch:
 
 jobs:
   check-commits:
@@ -14,13 +14,11 @@ jobs:
       - name: Checkout Repository
         uses: actions/checkout@v4
         with:
-          fetch-depth: 0  # Get full history to check commits
+          fetch-depth: 0
 
       - name: Get Feature Branches
-        id: get_branches
         run: |
-          BRANCHES=$(git branch -r | grep 'origin/feature-' | sed 's/origin\///' | tr '\n' ' ')
-          echo "Found branches: $BRANCHES"
+          BRANCHES=$(git branch -r | grep 'origin/feature-' | sed 's|origin/||' | tr '\n' ' ')
           echo "branches=$BRANCHES" >> $GITHUB_ENV
 
       - name: Find Branches with Recent Commits
@@ -35,35 +33,22 @@ jobs:
               RECENT_BRANCHES+=("\"$BRANCH\"")
             fi
           done
-          if [ ${#RECENT_BRANCHES[@]} -eq 0 ]; then
-            CHANGED_BRANCHES="[]"  # Empty JSON array
-          else
-            CHANGED_BRANCHES="[${RECENT_BRANCHES[*]}]"
-          fi
-          echo "Branches with recent commits: $CHANGED_BRANCHES"
-          echo "branches=$CHANGED_BRANCHES" >> $GITHUB_ENV
+          CHANGED_BRANCHES="[${RECENT_BRANCHES[*]}]"
           echo "branches=$CHANGED_BRANCHES" >> $GITHUB_OUTPUT
-      
-      - name: Debug Output
-        run: |
-          echo "Final Changed Branches Output:"
-          echo "${{ needs.check-commits.outputs.changed_branches }}"
-
 
   trigger-jenkins:
     needs: check-commits
-    if: ${{ needs.check-commits.outputs.changed_branches != '[]' }}
     runs-on: ubuntu-latest
-    strategy:
-      matrix:
-        branch: ${{ fromJson(needs.check-commits.outputs.changed_branches) }}
+    if: ${{ needs.check-commits.outputs.branches != '[]' }}
     steps:
-      - name: Trigger Jenkins for Feature Branches
-        if: env.changed_branches != ''
+      - name: Trigger Jenkins build for each branch
         env:
-          JENKINS_URL: http://jenkins.example.com
-          JENKINS_TOKEN: ${{ secrets.MY_JENKINS_TOKEN }}
+          JENKINS_URL: ${{ secrets.JENKINS_URL }}
+          JENKINS_TOKEN: ${{ secrets.JENKINS_TOKEN }}
         run: |
-          for branch in ${{ env.changed_branches }}; do
-            curl -X POST "http://127.0.0.1:8080/job/OnSchedule_Feature_Branch_Build//buildWithParameters?token=MY_JENKINS_TOKEN&BRANCH=$branch"
-          done
+          echo '${{ needs.check-commits.outputs.branches }}' | jq -c '.[]' > branches.txt
+          while read branch; do
+            CLEAN_BRANCH=$(echo $branch | tr -d '"')
+            echo "Triggering Jenkins job for branch: $CLEAN_BRANCH"
+            curl -X POST "http://127.0.0.1:8080/job/OnSchedule_Feature_Branch_Build//buildWithParameters?token=github-token&BRANCH=$CLEAN_BRANCH"
+          done < branches.txt
